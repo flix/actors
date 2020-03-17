@@ -8,7 +8,7 @@ namespace ActorDirectory {
     ///
     /// Returns an actor mailbox (blocking function)
     ///
-    pub def getActor(s: ActorDirectory, name: Str): Option[Mailbox] = {
+    pub def getActor(s: ActorDirectory, name: Str): Option[Mailbox] & Impure = {
       let RunningActorSystem(sys) = s;
       let c = chan Option[Mailbox] 0;
       sys <- GetActor(name, c);
@@ -18,7 +18,7 @@ namespace ActorDirectory {
     ///
     /// Sends a message to an actor, given its name
     ///
-    pub def send(s: RunningActorSystem, actorName: Str, msg: Message): Bool = {
+    pub def send(s: RunningActorSystem, actorName: Str, msg: Message): Bool & Impure = {
         let RunningActorSystem(sys) = s;
         let c = chan Bool 0;
         sys <- SendMessage(actorName, msg, c);
@@ -28,7 +28,7 @@ namespace ActorDirectory {
     ///
     /// Dynamically create a new actor, given its parent name, its behavior, and category
     ///
-    pub def create(s: RunningActorSystem, parent: Str, behavior: ActorBehavior, category: Str): Mailbox = {
+    pub def create(s: RunningActorSystem, parent: Str, behavior: ActorBehavior, category: Str): Mailbox & Impure = {
         let RunningActorSystem(sys) = s;
         let c = chan Mailbox 0;
         sys <- CreateActor(parent, behavior, category, c);

@@ -65,7 +65,7 @@ namespace ActorSystem {
     ///
     /// Return the current state of the actors in the system, using the ActorState, Log, and Actor relations.
     ///
-    def statesOfActors(s: ActorSystem, actors: ActorMap): ActorPolicy = {
+    def statesOfActors(s: ActorSystem, actors: ActorMap): ActorPolicy & Impure = {
       // Builds the ActorState relation
       let statesRel = Map.foldLeftWithKey((actorName, states, actor) ->
         let (internalState, _, _) = actor;
@@ -89,7 +89,8 @@ namespace ActorSystem {
         #{}, actors.dynamicActors);
       // Add the rule for the Sibling relation
       let sibling = #{Sibling(x, y) :- Actor(parent), Created(parent, x), Created(parent, y).};
-      statesRel <+> logRel <+> actorsRel <+> createdRel <+> sibling <+> #{ Clock(Instant.now()). }
+      let rightNow = Instant.now();
+      statesRel <+> logRel <+> actorsRel <+> createdRel <+> sibling <+> #{ Clock(rightNow). }
     }
 
   rel ActorsNotStopped()
@@ -106,7 +107,7 @@ namespace ActorSystem {
   ///
   /// Starts an actor given its name, behavior, and mailbox. Returns the updated map of running actors
   ///
-  def startActor(actors: ActorMap, control: Channel[SystemEvent], actorName: Str, behavior: ActorBehavior, mailbox: Channel[Message]): ActorMap = {
+  def startActor(actors: ActorMap, control: Channel[SystemEvent], actorName: Str, behavior: ActorBehavior, mailbox: Channel[Message]): ActorMap & Impure = {
     // Create the process of the new actor
     spawn ({
         match behavior(RunningActorSystem(control), mailbox) with {
@@ -145,34 +146,42 @@ namespace ActorSystem {
   /// Runs the shutdown policy of an actor system.
   /// Returns the updated actor map after one iteration of the policy, or None if the system should stop.
   ///
-  def runShutdownPolicy(s: ActorSystem, actors: ActorMap, _control: Channel[SystemEvent], notifyChan: Channel[Unit]): Option[ActorMap] = {
+  def runShutdownPolicy(s: ActorSystem, actors: ActorMap, _control: Channel[SystemEvent], notifyChan: Channel[Unit]): Option[ActorMap] & Impure = {
     Console.printLine("[system] shutdown policy");
     let currentState = statesOfActors(s, actors);
-    let (actors2, n) = fold Stop (actors, 0) ((actorName, acc) ->
+    let (actors2, n) = fold Stop (actors, 0) ((actorName, acc) -> // TODO: Fold requires a pure function and this is not pure, hence all the casts.
       let (m, n) = acc; // m is the number of actors (really) stopped in this iteration
-      Console.printLine("[system] have to stop actor: " + actorName);
+      // Console.printLine("[system] have to stop actor: " + actorName);
+
       match Map.get(actorName, m.map) {
-        case Some((Started(Running, mailbox), _, _)) =>
+        case Some((Started(Running, mailbox), _, _)) => {
           Console.printLine("!!!!! [system] sending stop to " + actorName);
          // Running, Stop => stop the actor
          mailbox <- Stop; // actor will terminate and will notify the actor system
          (m, n+1)
-      case Some((Started(ResumablyCrashed, mailbox), behavior, resumableBehavior)) =>
+      } as & Pure
+
+      case Some((Started(ResumablyCrashed, mailbox), behavior, resumableBehavior)) => {
           // ResumablyCrashed, Stop => change state to stopped
           Console.printLine("[system] setting crashed1 to stop: " + actorName);
         ({ map = Map.insert(actorName, (Started(Stopped, mailbox), behavior, resumableBehavior), m.map),
            log = (actorName, ResumablyCrashed, Stopped, Instant.now()) :: m.log
          | m}, n)
-      case Some((Started(NonResumablyCrashed, mailbox), behavior, resumableBehavior)) =>
+      } as & Pure
+
+      case Some((Started(NonResumablyCrashed, mailbox), behavior, resumableBehavior)) => {
           // NonResumablyCrashed, Stop => change state to stopped
           Console.printLine("[system] setting crashed2 to stop: " + actorName);
         ({ map = Map.insert(actorName, (Started(Stopped, mailbox), behavior, resumableBehavior), m.map),
            log = (actorName, NonResumablyCrashed, Stopped, Instant.now()) :: m.log
          | m}, n)
-        case _ =>
+      } as & Pure
+
+      case _ => {
           Console.printLine("[system] non-case for : " + actorName);
-        // Other cases are no-ops
-        (m, n)
+          // Other cases are no-ops
+          (m, n)
+      } as & Pure
       }) (solve (s.restartPolicy<+> s.shutdownPolicy <+> currentState));
     if (n == 0 && allActorsStopped(currentState)) {
       Console.printLine("[system] fully stopped");
@@ -203,7 +212,7 @@ namespace ActorSystem {
     case ActionRestart,
     case ActionStop
   }
-  def runRestartPolicy(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent]): ActorMap = {
+  def runRestartPolicy(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent]): ActorMap & Impure = {
     let currentState = statesOfActors(s, actors);
     // We just accumulate for each actor, whether it should 1. Stop, 2. Start, 3. Resume, overriding any previous value. This corresponds to the increasing order of the sop/start/resume lattice.
     let m0: Map[Str, ActorAction] = Map#{};
@@ -296,7 +305,7 @@ namespace ActorSystem {
   ///
   /// Restart all actors that are "restarting" (have been send a Stop signal) and have successfully stopped or crashed.
   ///
-  def startRestartingActors(actors: ActorMap, control: Channel[SystemEvent]): ActorMap = {
+  def startRestartingActors(actors: ActorMap, control: Channel[SystemEvent]): ActorMap & Impure = {
     let (actors2, restarting) = List.foldLeft((acc, actorName) ->
       let (m, notRestarted) = acc;
       match Map.get(actorName, m.map) {
@@ -320,7 +329,7 @@ namespace ActorSystem {
   ///
   /// Run the current policy (@param `policy`). Returns the updated actor map, as well as the next state of the policy.
   ///
-  def runPolicy(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent], policy: Policy): Option[(ActorMap, Policy)] = {
+  def runPolicy(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent], policy: Policy): Option[(ActorMap, Policy)] & Impure = {
     let r = match policy {
       case PolicyNotStarted => Some((actors, policy))
       case PolicyRunning => Some((runRestartPolicy(s, actors, control), PolicyRunning))
@@ -330,7 +339,7 @@ namespace ActorSystem {
     Option.map(res -> (startRestartingActors(fst(res), control), snd(res)), r)
   }
 
-  def runPolicyAndRecurse(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent], policy: Policy): Unit =
+  def runPolicyAndRecurse(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent], policy: Policy): Unit & Impure =
     match runPolicy(s, actors, control, policy) {
       case Some((actors2, policy2)) => actorSystem(s, actors2, control, policy2)
       case None => ()
@@ -339,7 +348,7 @@ namespace ActorSystem {
   ///
   /// The main loop of the actor system, handling messages over the control channel
   ///
-  def actorSystem(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent], policy: Policy): Unit = select {
+  def actorSystem(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent], policy: Policy): Unit & Impure = select {
       case event <- control => match event {
         case SystemStart =>
           assert!(policy == PolicyNotStarted); // Otherwise, the actor system has been started more than once.
@@ -365,8 +374,10 @@ namespace ActorSystem {
           c <- mb;
           actorSystem(s, actors, control, policy)
         case CreateActor(parent, beh, category, replyChan) =>
+          import java.time.Instant.toString();
+          import java.time.Instant:now();
           let mailbox = chan Message defaultMailboxCapacity();
-          let actorName = category + (native method java.time.Instant.toString(native method java.time.Instant.now()));
+          let actorName = category + (toString(now()));
           let actors2 = startActor(actors, control, actorName, beh, mailbox);
           let actors3 = { dynamicActors = (actorName, parent, category) :: actors2.dynamicActors | actors2 };
           replyChan <- mailbox;
@@ -426,7 +437,7 @@ namespace ActorSystem {
     ///
     /// Starts the given actor system `s`. Returns the updated actor system
     ///
-    pub def start(s: ActorSystem): RunningActorSystem = {
+    pub def start(s: ActorSystem): RunningActorSystem & Impure = {
       let control = chan SystemEvent 10;
       let actors = Map.foldLeftWithKey((actorName, m, behavior) ->
         Map.insert(actorName, (NotStarted, behavior, None), m),
@@ -458,7 +469,7 @@ namespace ActorSystem {
     ///
     /// Initiates a shutdown of the given actor system `s` and waits for its orderly shutdown.
     ///
-  pub def shutdown(s: RunningActorSystem): Unit = {
+  pub def shutdown(s: RunningActorSystem): Unit & Impure = {
         let RunningActorSystem(sys) = s;
         let c = chan Unit 0;
         sys <- SystemShutdown(c);

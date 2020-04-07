@@ -67,7 +67,7 @@ namespace ActorSystem {
     ///
     def statesOfActors(s: ActorSystem, actors: ActorMap): ActorPolicy & Impure = {
       // Builds the ActorState relation
-      let statesRel = Map.foldLeftWithKey((actorName, states, actor) ->
+      let statesRel = Map.foldLeftWithKey((states, actorName, actor) ->
         let (internalState, _, _) = actor;
         match internalState {
           case NotStarted => states <+> #{ActorState(actorName, Stopped).}
@@ -223,7 +223,7 @@ namespace ActorSystem {
     let m3 = fold Restart m2 ((actorName, m) -> Map.insert(actorName, ActionRestart, m)) policy;
     let m4 = fold Resume m3 ((actorName, m) -> Map.insert(actorName, ActionResume, m)) policy;
     // Then, we just apply the action for each actor, according to the table.
-    Map.foldLeftWithKey((actorName, m, action) ->
+    Map.foldLeftWithKey((m, actorName, action) ->
       match action {
       case ActionStart => match Map.get(actorName, m.map) {
           case Some((NotStarted, behavior, _)) =>
@@ -439,7 +439,7 @@ namespace ActorSystem {
     ///
     pub def start(s: ActorSystem): RunningActorSystem & Impure = {
       let control = chan SystemEvent 10;
-      let actors = Map.foldLeftWithKey((actorName, m, behavior) ->
+      let actors = Map.foldLeftWithKey((m, actorName, behavior) ->
         Map.insert(actorName, (NotStarted, behavior, None), m),
         Map#{}, s.actors);
       spawn (actorSystem(s, { map = actors, log = Nil, restarting = Nil, dynamicActors = Nil }, control, PolicyNotStarted));

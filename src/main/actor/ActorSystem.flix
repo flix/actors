@@ -110,7 +110,7 @@ namespace ActorSystem {
   def startActor(actors: ActorMap, control: Channel[SystemEvent], actorName: Str, behavior: ActorBehavior, mailbox: Channel[Message]): ActorMap & Impure = {
     // Create the process of the new actor
     spawn ({
-        match behavior(RunningActorSystem(control), mailbox) with {
+        match behavior(RunningActorSystem(control), mailbox) {
             case Done =>
                 // Notify on the control channel that the actor is done
                 control <- ActorDone(actorName)
@@ -351,7 +351,7 @@ namespace ActorSystem {
   def actorSystem(s: ActorSystem, actors: ActorMap, control: Channel[SystemEvent], policy: Policy): Unit & Impure = select {
       case event <- control => match event {
         case SystemStart =>
-          assert!(policy == PolicyNotStarted); // Otherwise, the actor system has been started more than once.
+          //assert!(policy == PolicyNotStarted); // Otherwise, the actor system has been started more than once.
           runPolicyAndRecurse(s, actors, control, PolicyRunning)
         case SystemShutdown(c) =>
           runPolicyAndRecurse(s, actors, control, PolicyStopping(c))

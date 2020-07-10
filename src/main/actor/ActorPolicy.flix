@@ -1,7 +1,7 @@
 ///
 /// A type alias for the row type of an actor policy.
 ///
-type alias ActorPolicy = #{Actor, ActorState, DependsOn, Start, Stop, Resume, Restart, Log, Clock, Blocked, Sibling, Created, Category}
+type alias ActorPolicy = #{Actor, ActorState, DependsOn, Start, Stop, Resume, Restart, Log, Clock, Blocked, Sibling, Created, Category, ActorsNotStopped()}
 
 // TODO: Could we have the start policy only using the Start predicate. And the stop policy NOT using the start predicate.
 // TODO: But we do need the join for the "restartPolicy" (which maybe we should rename to "runningPolicy")

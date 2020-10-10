@@ -122,9 +122,9 @@ pub rel ActorState(name: Str, state: State)
 rel Blocked(name: Str) // TODO: Rename to wait?
 
 ///
-/// Returns the default start policy.
+/// Returns the empty start policy.
 ///
-pub def defaultStartPolicy(): ActorPolicy = #{
+pub def emptyStartPolicy(): ActorPolicy = #{
     // Compute the transitive closure of the DependsOn relation.
     DependsOn(x, z) :- DependsOn(x, y), DependsOn(y, z).
 
@@ -145,9 +145,9 @@ pub def immediatelyStartAllPolicy(): ActorPolicy = #{
 }
 
 ///
-/// Returns the default shutdown policy.
+/// Returns the empty shutdown policy.
 ///
-pub def defaultShutdownPolicy(): ActorPolicy = #{
+pub def emptyShutdownPolicy(): ActorPolicy = #{
     // Compute the transitive closure of the DependsOn relation.
     DependsOn(x, z) :- DependsOn(x, y), DependsOn(y, z).
 
@@ -168,9 +168,9 @@ pub def immediatelyShutdownAllPolicy(): ActorPolicy = #{
 }
 
 ///
-/// Returns the default restart policy.
+/// Returns the empty restart policy.
 ///
-pub def defaultRestartPolicy(): ActorPolicy = oneForOneRestartPolicy()
+pub def emptyRestartPolicy(): ActorPolicy = oneForOneRestartPolicy()
 
 ///
 /// Returns a restart policy that restarts an actor when it crashes.

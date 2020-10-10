@@ -26,19 +26,19 @@ type alias ActorRef = Mailbox // TODO: Quentin: Maybe a name and a mailbox?
 namespace ActorSystem {
 
     ///
-    /// Returns an actor system with a default configuration.
+    /// Returns an actor system with a empty configuration.
     ///
-    pub def default(): ActorSystem = {
+    pub def empty(): ActorSystem = {
         actors          = Map#{},
-        startPolicy     = defaultStartPolicy(),
-        shutdownPolicy  = defaultShutdownPolicy(),
-        restartPolicy   = defaultRestartPolicy()
+        startPolicy     = emptyStartPolicy(),
+        shutdownPolicy  = emptyShutdownPolicy(),
+        restartPolicy   = emptyRestartPolicy()
     }
 
     ///
-    /// Returns the default mailbox capacity.
+    /// Returns the empty mailbox capacity.
     ///
-    pub def defaultMailboxCapacity(): Int = 1000 * 1000
+    pub def emptyMailboxCapacity(): Int = 1000 * 1000
 
     enum InternalActorState {
       ///
@@ -228,7 +228,7 @@ namespace ActorSystem {
       case ActionStart => match Map.get(actorName, m.map) {
           case Some((NotStarted, behavior, _)) =>
             // Start the actor with a new mailbox
-            let mailbox = chan Message defaultMailboxCapacity();
+            let mailbox = chan Message emptyMailboxCapacity();
             startActor(m, control, actorName, behavior, mailbox)
           case Some((Started(Stopped, mailbox), behavior, _)) =>
             // Start the actor, reusing the mailbox
@@ -376,7 +376,7 @@ namespace ActorSystem {
         case CreateActor(parent, beh, category, replyChan) =>
           import java.time.Instant.toString();
           import java.time.Instant:now();
-          let mailbox = chan Message defaultMailboxCapacity();
+          let mailbox = chan Message emptyMailboxCapacity();
           let actorName = category + (toString(now()));
           let actors2 = startActor(actors, control, actorName, beh, mailbox);
           let actors3 = { dynamicActors = (actorName, parent, category) :: actors2.dynamicActors | actors2 };
